@@ -9,35 +9,47 @@ let package = Package(
     ],
     products: [
         .library(
+            name: "Aria2RPC",
+            targets: ["Aria2RPC"]
+        ),
+        .library(
             name: "SwiftAria",
             targets: ["SwiftAria"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.4.0"),
+    ],
     targets: [
         .target(
-            name: "SwiftAria",
-            dependencies: ["CAria2Bridge"],
+            name: "Aria2RPC",
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
             ]
         ),
         .target(
-            name: "CAria2Bridge",
-            dependencies: ["Aria2Binary"],
-            publicHeadersPath: "include",
-            linkerSettings: [
-                .linkedLibrary("z"),
-                .linkedFramework("CoreFoundation"),
-                .linkedFramework("Security"),
+            name: "SwiftAria",
+            dependencies: ["Aria2RPC"],
+            resources: [
+                .copy("Resources/aria2c"),
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
             ]
         ),
-        .binaryTarget(
-            name: "Aria2Binary",
-            path: "Vendor/Aria2.xcframework"
+        .testTarget(
+            name: "Aria2RPCTests",
+            dependencies: ["Aria2RPC"],
+            swiftSettings: [
+                .enableUpcomingFeature("ApproachableConcurrency"),
+            ]
         ),
         .testTarget(
             name: "SwiftAriaTests",
-            dependencies: ["SwiftAria"],
+            dependencies: [
+                "Aria2RPC",
+                "SwiftAria",
+            ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
             ]

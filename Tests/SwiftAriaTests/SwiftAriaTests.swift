@@ -1,3 +1,4 @@
+import Aria2RPC
 import Foundation
 import Network
 import Testing
@@ -14,13 +15,24 @@ import Testing
     }
 }
 
-@Test func requestRejectsUnsupportedURLSchemes() throws {
+@Test func requestAcceptsFTPURLs() throws {
     let request = DownloadRequest(
         url: try #require(URL(string: "ftp://example.com/file.zip")),
         destination: URL(filePath: "/tmp/file.zip")
     )
 
-    #expect(throws: DownloadError.unsupportedURLScheme("ftp")) {
+    #expect(throws: Never.self) {
+        try request.validate()
+    }
+}
+
+@Test func requestRejectsUnsupportedURLSchemes() throws {
+    let request = DownloadRequest(
+        url: try #require(URL(string: "sftp://example.com/file.zip")),
+        destination: URL(filePath: "/tmp/file.zip")
+    )
+
+    #expect(throws: DownloadError.unsupportedURLScheme("sftp")) {
         try request.validate()
     }
 }
@@ -54,20 +66,44 @@ import Testing
     #expect(id.description == "42")
 }
 
-@Test func clientDownloadsFromLocalHTTPServer() async throws {
-    let payload = Data("SwiftAria local integration test".utf8)
+@Test func downloadClientUsesInjectedBackend() async throws {
+    let destination = URL(filePath: "/tmp/swiftaria-test.bin")
+    let request = DownloadRequest(
+        url: try #require(URL(string: "https://example.com/file.bin")),
+        destination: destination
+    )
+    let backend = FakeDownloadBackend(destination: destination)
+    let client = DownloadClient(backend: backend)
+
+    let handle = try await client.download(request)
+    let fileURL = try await handle.value
+
+    #expect(handle.id == DownloadID(rawValue: "fake-gid"))
+    #expect(fileURL == destination)
+    #expect(await backend.startedRequests == [request])
+}
+
+@Test func rpcDaemonDownloadsFromLocalHTTPServer() async throws {
+    let payload = Data("SwiftAria RPC integration test".utf8)
     let server = try LocalHTTPServer(payload: payload)
     defer { server.stop() }
     try await Task.sleep(for: .milliseconds(100))
 
     let directory = FileManager.default.temporaryDirectory
-        .appending(path: "SwiftAriaTests-")
+        .appending(path: "SwiftAriaRPCTests-")
         .appending(path: UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: directory) }
 
-    let (serverData, _) = try await URLSession.shared.data(from: server.url)
-    #expect(serverData == payload)
+    let daemon = try Aria2Daemon(
+        port: randomPort(),
+        downloadDirectory: directory
+    )
+    try await daemon.start()
+    defer { Task { await daemon.stop() } }
+
+    let rpcClient = Aria2RPCClient(endpoint: daemon.endpoint)
+    try await waitForRPCServer(rpcClient)
 
     let destination = directory.appending(path: "payload.txt")
     let request = DownloadRequest(
@@ -77,35 +113,48 @@ import Testing
         splitCount: 1
     )
 
-    let handle = try await DownloadClient().download(request)
+    let client = DownloadClient(endpoint: daemon.endpoint)
+    let handle = try await client.download(request)
     let fileURL = try await handle.value
     let downloaded = try Data(contentsOf: fileURL)
 
     #expect(downloaded == payload)
 }
 
-@Test func clientDownloadsFromPublicInternet() async throws {
-    let directory = FileManager.default.temporaryDirectory
-        .appending(path: "SwiftAriaInternetTests-")
-        .appending(path: UUID().uuidString)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: directory) }
+actor FakeDownloadBackend: DownloadBackend {
+    private let destination: URL
+    private(set) var startedRequests: [DownloadRequest] = []
 
-    let destination = directory.appending(path: "example.html")
-    let request = DownloadRequest(
-        url: try #require(URL(string: "https://www.example.com/")),
-        destination: destination,
-        connectionsPerServer: 1,
-        splitCount: 1
-    )
+    init(destination: URL) {
+        self.destination = destination
+    }
 
-    let handle = try await DownloadClient().download(request)
-    let fileURL = try await handle.value
-    let downloaded = try Data(contentsOf: fileURL)
-    let html = String(decoding: downloaded, as: UTF8.self)
+    func start(_ request: DownloadRequest) async throws -> DownloadSession {
+        startedRequests.append(request)
+        let id = DownloadID(rawValue: "fake-gid")
+        let stream = AsyncStream<DownloadProgress> { continuation in
+            continuation.yield(
+                DownloadProgress(
+                    id: id,
+                    completedBytes: 1,
+                    totalBytes: 1,
+                    bytesPerSecond: 0,
+                    state: .completed
+                )
+            )
+            continuation.finish()
+        }
 
-    #expect(!downloaded.isEmpty)
-    #expect(html.contains("Example Domain"))
+        return DownloadSession(id: id, progressUpdates: stream)
+    }
+
+    func pause(_ id: DownloadID) async throws {}
+    func resume(_ id: DownloadID) async throws {}
+    func cancel(_ id: DownloadID) async throws {}
+
+    func wait(for id: DownloadID) async throws -> URL {
+        destination
+    }
 }
 
 private final class LocalHTTPServer: @unchecked Sendable {
@@ -121,7 +170,7 @@ private final class LocalHTTPServer: @unchecked Sendable {
         var selectedListener: NWListener?
         var selectedPort: UInt16?
         for _ in 0..<20 {
-            let candidate = UInt16.random(in: 40_000...60_000)
+            let candidate = randomPort()
             guard let port = NWEndpoint.Port(rawValue: candidate) else { continue }
 
             do {
@@ -153,5 +202,26 @@ private final class LocalHTTPServer: @unchecked Sendable {
 
     func stop() {
         listener.cancel()
+    }
+}
+
+private func randomPort() -> UInt16 {
+    UInt16.random(in: 40_000...60_000)
+}
+
+private func waitForRPCServer(_ client: Aria2RPCClient) async throws {
+    var lastError: Error?
+    for _ in 0..<20 {
+        do {
+            _ = try await client.getVersion()
+            return
+        } catch {
+            lastError = error
+            try await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    if let lastError {
+        throw lastError
     }
 }
