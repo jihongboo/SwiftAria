@@ -79,10 +79,17 @@ This package includes DocC catalogs for both products:
 
 The repository includes a GitHub Actions workflow at `.github/workflows/docs.yml` that builds DocC with `swift-docc-plugin` and deploys the generated static site to GitHub Pages on pushes to `main`.
 
-After enabling GitHub Pages with GitHub Actions as the source, the documentation is published at:
+After enabling GitHub Pages with GitHub Actions as the source, the documentation root is published at:
 
 ```text
 https://<owner>.github.io/<repository>/
+```
+
+The root page redirects to the SwiftAria documentation and links both generated DocC archives:
+
+```text
+https://<owner>.github.io/<repository>/SwiftAria.doccarchive/documentation/swiftaria/
+https://<owner>.github.io/<repository>/Aria2RPC.doccarchive/documentation/aria2rpc/
 ```
 
 ## License Notice

@@ -36,6 +36,24 @@ jobs:
             --hosting-base-path "$REPOSITORY_NAME" \
             --output-path ./docs
 
+          cat > ./docs/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=SwiftAria.doccarchive/documentation/swiftaria/">
+            <title>SwiftAria Documentation</title>
+          </head>
+          <body>
+            <h1>SwiftAria Documentation</h1>
+            <ul>
+              <li><a href="SwiftAria.doccarchive/documentation/swiftaria/">SwiftAria</a></li>
+              <li><a href="Aria2RPC.doccarchive/documentation/aria2rpc/">Aria2RPC</a></li>
+            </ul>
+          </body>
+          </html>
+          HTML
+
           touch ./docs/.nojekyll
 
       - name: Upload Pages artifact
