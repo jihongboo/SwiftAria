@@ -82,14 +82,14 @@ The repository includes a GitHub Actions workflow at `.github/workflows/docs.yml
 After enabling GitHub Pages with GitHub Actions as the source, the documentation root is published at:
 
 ```text
-https://<owner>.github.io/<repository>/
+https://jihongboo.github.io/SwiftAria/
 ```
 
 The root page redirects to the SwiftAria documentation and links both generated DocC products:
 
 ```text
-https://<owner>.github.io/<repository>/documentation/swiftaria/
-https://<owner>.github.io/<repository>/documentation/aria2rpc/
+https://jihongboo.github.io/SwiftAria/documentation/swiftaria/
+https://jihongboo.github.io/SwiftAria/documentation/aria2rpc/
 ```
 
 ## License Notice
