@@ -25,36 +25,45 @@ jobs:
       - name: Build DocC static site
         run: |
           REPOSITORY_NAME="${GITHUB_REPOSITORY#*/}"
+          ARCHIVE_OUTPUT="./docs-archives"
+          SITE_OUTPUT="./docs"
 
           swift package \
-            --allow-writing-to-directory ./docs \
+            --allow-writing-to-directory "$ARCHIVE_OUTPUT" \
             generate-documentation \
             --target Aria2RPC \
             --target SwiftAria \
             --disable-indexing \
             --transform-for-static-hosting \
             --hosting-base-path "$REPOSITORY_NAME" \
-            --output-path ./docs
+            --output-path "$ARCHIVE_OUTPUT"
 
-          cat > ./docs/index.html <<'HTML'
+          rm -rf "$SITE_OUTPUT"
+          mkdir -p "$SITE_OUTPUT"
+
+          cp -R "$ARCHIVE_OUTPUT/SwiftAria.doccarchive/." "$SITE_OUTPUT/"
+          cp -R "$ARCHIVE_OUTPUT/Aria2RPC.doccarchive/documentation/aria2rpc" "$SITE_OUTPUT/documentation/"
+          cp "$ARCHIVE_OUTPUT/Aria2RPC.doccarchive/data/documentation/aria2rpc.json" "$SITE_OUTPUT/data/documentation/"
+
+          cat > "$SITE_OUTPUT/index.html" <<'HTML'
           <!doctype html>
           <html lang="en">
           <head>
             <meta charset="utf-8">
-            <meta http-equiv="refresh" content="0; url=SwiftAria.doccarchive/documentation/swiftaria/">
+            <meta http-equiv="refresh" content="0; url=documentation/swiftaria/">
             <title>SwiftAria Documentation</title>
           </head>
           <body>
             <h1>SwiftAria Documentation</h1>
             <ul>
-              <li><a href="SwiftAria.doccarchive/documentation/swiftaria/">SwiftAria</a></li>
-              <li><a href="Aria2RPC.doccarchive/documentation/aria2rpc/">Aria2RPC</a></li>
+              <li><a href="documentation/swiftaria/">SwiftAria</a></li>
+              <li><a href="documentation/aria2rpc/">Aria2RPC</a></li>
             </ul>
           </body>
           </html>
           HTML
 
-          touch ./docs/.nojekyll
+          touch "$SITE_OUTPUT/.nojekyll"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

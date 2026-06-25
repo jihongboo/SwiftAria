@@ -85,11 +85,11 @@ After enabling GitHub Pages with GitHub Actions as the source, the documentation
 https://<owner>.github.io/<repository>/
 ```
 
-The root page redirects to the SwiftAria documentation and links both generated DocC archives:
+The root page redirects to the SwiftAria documentation and links both generated DocC products:
 
 ```text
-https://<owner>.github.io/<repository>/SwiftAria.doccarchive/documentation/swiftaria/
-https://<owner>.github.io/<repository>/Aria2RPC.doccarchive/documentation/aria2rpc/
+https://<owner>.github.io/<repository>/documentation/swiftaria/
+https://<owner>.github.io/<repository>/documentation/aria2rpc/
 ```
 
 ## License Notice
